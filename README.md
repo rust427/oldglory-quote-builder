@@ -1,1 +1,0 @@
-# oldglory-quote-builder
