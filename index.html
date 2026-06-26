@@ -964,9 +964,69 @@ function emailInvoice() {
   if (!cart.length) { showToast('Add some items first!', 'err'); return; }
   const toEmail = document.getElementById('custEmail').value.trim();
   if (!toEmail) { showToast('Enter a customer email address', 'err'); return; }
-  const w = window.open('', '_blank');
-  w.document.write(buildInvoiceHTML(toEmail));
-  w.document.close();
+
+  const custName    = custVal('custName')    || 'Valued Customer';
+  const custPhone   = custVal('custPhone')   || '';
+  const custAddress = custVal('custAddress') || '';
+  const project     = custVal('custProject') || 'Propane Service';
+  const invNum      = document.getElementById('quoteNumDisplay').textContent;
+  const dateStr     = today();
+  const taxSel      = document.getElementById('taxCountySelect');
+  const taxRate     = parseFloat(taxSel.value) || 0;
+
+  // Build plain-text line items
+  let sub = 0;
+  const colW = [12, 42, 5, 5, 11, 10];
+  const pad = (s, w) => String(s).padEnd(w).slice(0, w);
+  const padL = (s, w) => String(s).padStart(w).slice(-w);
+  const sep = '-'.repeat(colW.reduce((a,b)=>a+b,0) + colW.length - 1);
+  let itemLines = pad('Part #', colW[0]) + ' ' + pad('Description', colW[1]) + ' ' +
+                  pad('Qty', colW[2]) + ' ' + pad('Unit', colW[3]) + ' ' +
+                  padL('Unit Price', colW[4]) + ' ' + padL('Total', colW[5]) + '\n' + sep + '\n';
+  cart.forEach(({item, qty}) => {
+    const lineTotal = item.price != null ? item.price * qty : null;
+    if (lineTotal) sub += lineTotal;
+    itemLines += pad(item.part, colW[0]) + ' ' +
+                 pad((item.desc || item.part).slice(0, colW[1]), colW[1]) + ' ' +
+                 padL(qty, colW[2]) + ' ' +
+                 pad(item.unit||'EA', colW[3]) + ' ' +
+                 padL(item.price!=null?fmt(item.price):'—', colW[4]) + ' ' +
+                 padL(lineTotal!=null?fmt(lineTotal):'—', colW[5]) + '\n';
+  });
+  itemLines += sep;
+
+  const taxAmt     = sub * taxRate;
+  const grandTotal = sub + taxAmt;
+  const taxLine    = taxRate > 0 ? `\nSales Tax (${taxSel.options[taxSel.selectedIndex].text}): ${fmt(taxAmt)}` : '';
+
+  const body = [
+    'OLD GLORY PROPANE',
+    'oldglorypropane@gmail.com',
+    '',
+    `INVOICE: ${invNum}`,
+    `Date: ${dateStr}`,
+    'Due: 30 days from invoice date',
+    '',
+    'BILL TO:',
+    custName,
+    custPhone,
+    custAddress,
+    '',
+    `Project: ${project}`,
+    '',
+    'ITEMS:',
+    itemLines,
+    '',
+    `Subtotal: ${fmt(sub)}${taxLine}`,
+    `TOTAL DUE: ${fmt(grandTotal)}`,
+    '',
+    'Thank you for your business!',
+    'Payment due within 30 days of invoice date.'
+  ].filter(l => l !== null).join('\n');
+
+  const subject = encodeURIComponent(`Old Glory Propane — Invoice ${invNum}`);
+  const encodedBody = encodeURIComponent(body);
+  window.location.href = `mailto:${toEmail}?subject=${subject}&body=${encodedBody}`;
 }
 
 
