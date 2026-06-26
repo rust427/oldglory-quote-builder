@@ -113,7 +113,9 @@ button{cursor:pointer;}
 .card-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;}
 .card-price{font-size:0.9rem;font-weight:800;color:var(--navy);}
 .add-btn{background:var(--navy);color:white;border:none;width:28px;height:28px;border-radius:7px;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:background 0.15s;flex-shrink:0;}
-.ft-qty-input{width:52px;padding:2px 4px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;text-align:center;}
+.ft-qty-input{width:56px;padding:4px 6px;border:2px solid var(--navy);border-radius:6px;font-size:0.9rem;text-align:center;font-weight:600;}
+.ft-row{display:flex;flex-direction:column;align-items:center;gap:2px;margin-right:6px;}
+.ft-label{font-size:0.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;}
 .add-btn:hover{background:var(--sky);}
 .add-btn.added{background:var(--green);}
 
@@ -637,22 +639,38 @@ function renderCatalog() {
   if (!filtered.length) { grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:36px;color:var(--muted);">No parts match your search.</div>'; return; }
   filtered.forEach(it => {
     const inC = inCart(it.part);
+    const isFT = it.unit === 'FT';
     const imgH = it.img ? `<img src="${it.img}" alt="${it.part}" loading="lazy">` : noImgPh;
     const card = document.createElement('div');
     card.className = 'part-card' + (inC?' in-cart':'');
+    const ftInputId = 'ft_' + it.id;
+    const ftInput = isFT ? `<input type="number" class="ft-qty-input" id="${ftInputId}" value="1" min="1" max="9999" placeholder="ft">` : '';
+    const priceLabel = it.price!=null ? fmt(it.price)+(isFT?' /ft':'') : '—';
+    const btnLabel = inC ? (isFT ? '+' : '✓') : '+';
     card.innerHTML = `
-      ${inC?'<div class="in-cart-badge">✓ Added</div>':''}
+      ${inC?'<div class="in-cart-badge">✓ In Quote</div>':''}
       <div class="card-img">${imgH}<div class="cat-chip">${it.category}</div></div>
       <div class="card-info">
         <div class="card-pn">${it.part}</div>
         <div class="card-desc-text">${it.desc||it.part}</div>
         <div class="card-bottom">
-          <div class="card-price">${it.price!=null?fmt(it.price)+(it.unit==='FT'?' /ft':''):'—'}</div>
-          ${it.unit==='FT' ? `<input type="number" class="ft-qty-input" id="ft_${it.id}" value="1" min="1" max="9999" placeholder="ft" onclick="event.stopPropagation()" style="width:52px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;text-align:center;">` : ''}
-          <button class="add-btn${inC?' added':''}" onclick="event.stopPropagation();addToCart('${it.part}'${it.unit==='FT'?' , (parseInt(document.getElementById(\`ft_${it.id}\`).value)||1)':''})"> ${inC?'✓':'+'}</button>
+          <div class="card-price">${priceLabel}</div>
+          ${isFT ? `<div class="ft-row"><label class="ft-label">Qty (ft)</label>${ftInput}</div>` : ''}
+          <button class="add-btn${(inC&&!isFT)?' added':''}" data-part="${it.part}" data-ft="${isFT}">${btnLabel}</button>
         </div>
       </div>`;
-    card.addEventListener('click', () => addToCart(it.part));
+    // Only non-FT cards get click-to-add on the whole card
+    if (!isFT) {
+      card.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON') addToCart(it.part);
+      });
+    }
+    // Button click for all items
+    card.querySelector('.add-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const qty = isFT ? (parseInt(document.getElementById(ftInputId).value) || 1) : 1;
+      addToCart(it.part, qty);
+    });
     grid.appendChild(card);
   });
 }
